@@ -56,8 +56,7 @@ class loginPage extends StatelessWidget {
               child: ListView(
                 shrinkWrap: true,
                 children: [
-                  l_title('로그인'),
-
+                  const l_title('로그인'),
                   const SizedBox(
                     height: 30,
                   ),
