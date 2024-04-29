@@ -29,6 +29,7 @@ public class User {
     private String name;
     private Integer mileage;
     private String introduceMessage;
+    private String firebaseToken;
 
     @OneToMany(mappedBy = "user")
     private List<RoomUser> roomUsers;

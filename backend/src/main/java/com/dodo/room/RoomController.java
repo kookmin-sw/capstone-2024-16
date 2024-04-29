@@ -1,6 +1,8 @@
 package com.dodo.room;
 
 import com.dodo.config.auth.CustomAuthentication;
+import com.dodo.fcm.FCMNotificationRequestDto;
+import com.dodo.fcm.FCMNotificationService;
 import com.dodo.room.domain.Category;
 import com.dodo.room.dto.RoomData;
 import com.dodo.room.dto.UserData;
@@ -43,6 +45,7 @@ public class RoomController {
     private final UserRepository userRepository;
     private final RoomTagService roomTagService;
     private final RoomTagRepository roomTagRepository;
+    private final FCMNotificationService fcmNotificationService;
 
     @GetMapping("/list")
     public List<RoomData> getMyRoomList(
@@ -80,7 +83,6 @@ public class RoomController {
         roomUserService.createRoomUser(userContext, room.getId());
         roomUserService.setManager(userContext, room);
         roomTagService.saveRoomTag(room, roomData.getTag());
-
 
         log.info("CREATE Chat RoomId: {}", room.getId());
 

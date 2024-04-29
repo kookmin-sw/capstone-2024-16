@@ -53,6 +53,7 @@ public abstract class UserCreateRequestData {
 
     private AuthenticationType type;
     private String email;
+    private String firebaseToken;
 
     public UserCreateRequestData(AuthenticationType type) {
         this.type = type;

@@ -50,6 +50,7 @@ public class UserService {
                 .mileage(0)
                 .image(image)
                 .introduceMessage("")
+                .firebaseToken(request.getFirebaseToken())
                 .build();
 
         userRepository.save(user);

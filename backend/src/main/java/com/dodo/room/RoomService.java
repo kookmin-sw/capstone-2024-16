@@ -1,6 +1,8 @@
 package com.dodo.room;
 
 import com.dodo.exception.NotFoundException;
+import com.dodo.fcm.FCMNotificationRequestDto;
+import com.dodo.fcm.FCMNotificationService;
 import com.dodo.room.domain.Category;
 import com.dodo.room.domain.CertificationType;
 import com.dodo.room.domain.Periodicity;
@@ -36,6 +38,7 @@ public class RoomService {
     private final RoomUserService roomUserService;
     private final RoomTagRepository roomTagRepository;
     private final RoomTagService roomTagService;
+    private final FCMNotificationService fcmNotificationService;
 
     public List<RoomData> getMyRoomList(UserContext userContext) {
         User user = userRepository.findById(userContext.getUserId())
@@ -165,6 +168,15 @@ public class RoomService {
                 roomUserRepository.findAllByRoomId(room.getId()).orElseThrow(NotFoundException::new).
                         forEach(roomUser -> roomUserService.deleteChatRoomUser(roomUser.getRoom().getId(), roomUser.getUser().getId()));
                 deleteRoom(room.getId());
+            }
+            if (room.getEndDay().toLocalDate().minusDays(1).isEqual(LocalDate.now(ZoneId.of("Asia/Seoul")))){
+
+                roomUserRepository.findAllByRoomId(room.getId()).orElseThrow(NotFoundException::new)
+                        .forEach(roomUser -> fcmNotificationService.sendNotificationByToken(FCMNotificationRequestDto.builder()
+                                .title("알림")
+                                .body("목표 기한이 하루 남았습니다. 24시간 뒤에 이 인증방은 없어집니다.")
+                                .targetUserId(roomUser.getUser().getId())
+                                .build()));
             }
 
         }

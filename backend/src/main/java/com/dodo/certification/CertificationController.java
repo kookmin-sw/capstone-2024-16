@@ -3,6 +3,8 @@ package com.dodo.certification;
 import com.dodo.certification.dto.*;
 import com.dodo.config.auth.CustomAuthentication;
 import com.dodo.config.auth.NotAuth;
+import com.dodo.fcm.FCMNotificationRequestDto;
+import com.dodo.fcm.FCMNotificationService;
 import com.dodo.user.domain.UserContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,6 +21,7 @@ import java.util.List;
 @Slf4j
 public class CertificationController {
     private final CertificationService certificationService;
+    private final FCMNotificationService fcmNotificationService;
 
     // 인증 생성, 인증은 아직 X
     @PostMapping("/upload")
@@ -73,9 +76,17 @@ public class CertificationController {
     @PostMapping("/ai-result")
     @NotAuth
     public String aiResult(
-            @RequestBody AiResponseData aiResponseData
+            @RequestBody AiResponseData aiResponseData,
+            @RequestAttribute UserContext userContext
             ) {
         certificationService.analyze(aiResponseData);
+        fcmNotificationService.sendNotificationByToken(
+                FCMNotificationRequestDto.builder()
+                        .title("알림")
+                        .body("AI 인증이 완료되었습니다.")
+                        .targetUserId(userContext.getUserId())
+                        .build()
+        );
         return "OK";
     }
 }
