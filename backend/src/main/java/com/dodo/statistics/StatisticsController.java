@@ -2,7 +2,7 @@ package com.dodo.statistics;
 
 import com.dodo.config.auth.CustomAuthentication;
 import com.dodo.statistics.dto.*;
-import com.dodo.user.domain.UserContext;
+import com.dodo.member.domain.MemberContext;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
@@ -17,38 +17,38 @@ public class StatisticsController {
 
     @GetMapping("/simple/{roomId}")
     public SimpleReportResponseData getSimpleReport(
-            @RequestAttribute UserContext userContext,
+            @RequestAttribute MemberContext memberContext,
             @PathVariable Long roomId
     ) {
-        return statisticsService.getSimpleReport(userContext, roomId);
+        return statisticsService.getSimpleReport(memberContext, roomId);
     }
 
     @GetMapping("/me")
     public ReportResponseData getReport(
-            @RequestAttribute UserContext userContext
+            @RequestAttribute MemberContext memberContext
     ) {
-        return statisticsService.getReport(userContext);
+        return statisticsService.getReport(memberContext);
     }
 
     @GetMapping("/weekly-goal")
     public List<DailyGoalResponseData> getWeeklyGoal(
-            @RequestAttribute UserContext userContext
+            @RequestAttribute MemberContext memberContext
     ) {
-        return statisticsService.getWeeklyGoal(userContext);
+        return statisticsService.getWeeklyGoal(memberContext);
     }
 
-    @GetMapping("/room-profile/{roomUserId}")
+    @GetMapping("/room-profile/{roomMemberId}")
     public RoomProfileData getRoomProfile(
-            @RequestAttribute UserContext userContext,
-            @PathVariable Long roomUserId
+            @RequestAttribute MemberContext memberContext,
+            @PathVariable Long roomMemberId
     ) {
-        return statisticsService.getRoomProfile(userContext, roomUserId);
+        return statisticsService.getRoomProfile(memberContext, roomMemberId);
     }
 
     @GetMapping("/album")
     public List<AlbumResponseData> getAlbum(
-            @RequestAttribute UserContext userContext
+            @RequestAttribute MemberContext memberContext
     ) {
-        return statisticsService.getAlbum(userContext);
+        return statisticsService.getAlbum(memberContext);
     }
 }

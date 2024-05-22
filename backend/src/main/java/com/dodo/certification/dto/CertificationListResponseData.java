@@ -3,31 +3,31 @@ package com.dodo.certification.dto;
 import com.dodo.certification.CertificationService;
 import com.dodo.certification.domain.Certification;
 import com.dodo.image.domain.Image;
-import com.dodo.user.domain.User;
+import com.dodo.member.domain.Member;
 import lombok.Data;
 
 import java.util.List;
 
 @Data
 public class CertificationListResponseData {
-    private Long userId;
-    private Long roomUserId;
+    private Long memberId;
+    private Long roomMemberId;
     private List<Long> certificationIdList;
-    private String userName;
-    private Image userImage;
+    private String memberName;
+    private Image memberImage;
     private Integer max;
     private Integer success;
     private Integer wait;
     private Boolean certification;
 
     public CertificationListResponseData(CertificationService.CertificationGroup group) {
-        User user = group.getRoomUser().getUser();
-        this.userId = user.getId();
-        this.roomUserId = group.getRoomUser().getId();
+        Member member = group.getRoomMember().getMember();
+        this.memberId = member.getId();
+        this.roomMemberId = group.getRoomMember().getId();
         this.certificationIdList = group.getCertificationList().stream().map(Certification::getId).toList();
-        this.userName = user.getName();
-        this.userImage = user.getImage();
-        this.max = group.getRoomUser().getRoom().getFrequency();
+        this.memberName = member.getName();
+        this.memberImage = member.getImage();
+        this.max = group.getRoomMember().getRoom().getFrequency();
         this.success = group.getSuccess();
         this.wait = group.getWait();
 

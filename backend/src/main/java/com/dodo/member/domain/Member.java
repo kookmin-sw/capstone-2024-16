@@ -1,7 +1,6 @@
-package com.dodo.user.domain;
+package com.dodo.member.domain;
 
 import com.dodo.image.domain.Image;
-import com.dodo.roomuser.domain.RoomUser;
 import com.dodo.sea.domain.SeaCreature;
 import jakarta.persistence.*;
 import lombok.*;
@@ -13,8 +12,7 @@ import java.util.List;
 @NoArgsConstructor
 @Builder
 @AllArgsConstructor
-@Table(name = "user")
-public class User {
+public class Member {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -30,8 +28,8 @@ public class User {
     private Integer mileage;
     private String introduceMessage;
 
-    @OneToMany(mappedBy = "user")
-    private List<RoomUser> roomUsers;
+    @OneToMany(mappedBy = "member")
+    private List<com.dodo.roommember.domain.RoomMember> roomMembers;
 
     @Setter
     @OneToMany

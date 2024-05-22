@@ -1,4 +1,4 @@
-package com.dodo.user.dto;
+package com.dodo.member.dto;
 
 import lombok.Data;
 

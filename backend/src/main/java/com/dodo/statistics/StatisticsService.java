@@ -8,12 +8,10 @@ import com.dodo.room.RoomRepository;
 import com.dodo.room.domain.Category;
 import com.dodo.room.domain.Periodicity;
 import com.dodo.room.domain.Room;
-import com.dodo.roomuser.RoomUserRepository;
-import com.dodo.roomuser.domain.RoomUser;
 import com.dodo.statistics.dto.*;
-import com.dodo.user.UserRepository;
-import com.dodo.user.domain.User;
-import com.dodo.user.domain.UserContext;
+import com.dodo.member.MemberRepository;
+import com.dodo.member.domain.Member;
+import com.dodo.member.domain.MemberContext;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,71 +27,71 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Slf4j
 public class StatisticsService {
-    private final UserRepository userRepository;
-    private final RoomUserRepository roomUserRepository;
+    private final MemberRepository memberRepository;
+    private final com.dodo.roommember.RoomMemberRepository roomMemberRepository;
     private final CertificationRepository certificationRepository;
     private final RoomRepository roomRepository;
 
-    public ReportResponseData getReport(UserContext userContext) {
-        User user = userRepository.findById(userContext.getUserId())
+    public ReportResponseData getReport(MemberContext memberContext) {
+        Member member = memberRepository.findById(memberContext.getMemberId())
                 .orElseThrow(() -> new NotFoundException("유저를 찾을 수 없습니다"));
-        List<RoomUser> roomUserList = roomUserRepository.findAllByUser(user)
+        List<com.dodo.roommember.domain.RoomMember> roomMemberList = roomMemberRepository.findAllByMember(member)
                 .orElse(new ArrayList<>());
 
 
         // 이번달 저번달 달성률
-        float roomUserSize = (float) roomUserList.size();
+        float roomMemberSize = (float) roomMemberList.size();
         float lastMonth = 0F;
         float thisMonth = 0F;
 
-        for(RoomUser roomuser : roomUserList) {
-            Room room = roomuser.getRoom();
-            SimpleReportResponseData data = getSimpleReport(userContext, room.getId());
+        for(com.dodo.roommember.domain.RoomMember roommember : roomMemberList) {
+            Room room = roommember.getRoom();
+            SimpleReportResponseData data = getSimpleReport(memberContext, room.getId());
             lastMonth += data.getLastMonth();
             thisMonth += data.getThisMonth();
         }
 
         // 가장 열심히 한 분야
-        List<Certification> certificationList = certificationRepository.findAllByRoomUserIn(roomUserList)
+        List<Certification> certificationList = certificationRepository.findAllByRoomMemberIn(roomMemberList)
                 .orElse(new ArrayList<>());
         Integer allCategoryStatus = certificationList.size();
         Map<Category, Long> categoryStatus = certificationList.stream()
-                .collect(Collectors.groupingBy(c -> c.getRoomUser().getRoom().getCategory(), Collectors.counting()));
+                .collect(Collectors.groupingBy(c -> c.getRoomMember().getRoom().getCategory(), Collectors.counting()));
 
 
         // 가장 많이 활동한 방에서 나는?
-        RoomUser maxRoomUser = roomUserRepository.findAllByUser(user)
+        com.dodo.roommember.domain.RoomMember maxRoomMember = roomMemberRepository.findAllByMember(member)
                 .orElse(new ArrayList<>())
                 .stream()
-                .max((ru1, ru2) -> (int) (certificationRepository.countAllByRoomUser(ru1) - certificationRepository.countAllByRoomUser(ru2)))
+                .max((ru1, ru2) -> (int) (certificationRepository.countAllByRoomMember(ru1) - certificationRepository.countAllByRoomMember(ru2)))
                 .get();
 
-        //TODO findAllByRoomUserRoom 이거 작동 하나..?
-        Map<User, Long> CertificationListFromUser = certificationRepository.findAllByRoomUserRoom(maxRoomUser.getRoom())
+        //TODO findAllByRoomMemberRoom 이거 작동 하나..?
+        Map<Member, Long> CertificationListFromMember = certificationRepository.findAllByRoomMemberRoom(maxRoomMember.getRoom())
                 .orElse(new ArrayList<>())
                 .stream()
-                .collect(Collectors.groupingBy(c -> c.getRoomUser().getUser(), Collectors.counting()));
+                .collect(Collectors.groupingBy(c -> c.getRoomMember().getMember(), Collectors.counting()));
 
-        List<User> keys = new ArrayList<>(CertificationListFromUser.keySet());
+        List<Member> keys = new ArrayList<>(CertificationListFromMember.keySet());
 
-        keys.sort(Comparator.comparing(CertificationListFromUser::get));
-        Float mostActivity = (float) keys.indexOf(maxRoomUser.getUser()) / (float) keys.size();
+        keys.sort(Comparator.comparing(CertificationListFromMember::get));
+        Float mostActivity = (float) keys.indexOf(maxRoomMember.getMember()) / (float) keys.size();
 
-        return new ReportResponseData(lastMonth / roomUserSize, thisMonth / roomUserSize, categoryStatus, allCategoryStatus, mostActivity);
+        return new ReportResponseData(lastMonth / roomMemberSize, thisMonth / roomMemberSize, categoryStatus, allCategoryStatus, mostActivity);
     }
 
     @Transactional
-    public SimpleReportResponseData getSimpleReport(UserContext userContext, Long roomId) {
-        User user = userRepository.findById(userContext.getUserId())
+    public SimpleReportResponseData getSimpleReport(MemberContext memberContext, Long roomId) {
+        Member member = memberRepository.findById(memberContext.getMemberId())
                 .orElseThrow(() -> new NotFoundException("유저를 찾을 수 없습니다"));
         Room room = roomRepository.findById(roomId)
                 .orElseThrow(() -> new NotFoundException("인증방을 찾을 수 없습니다"));
-        RoomUser roomuser = roomUserRepository.findByUserAndRoom(user, room)
+        com.dodo.roommember.domain.RoomMember roommember = roomMemberRepository.findByMemberAndRoom(member, room)
                 .orElseThrow(() -> new NotFoundException("인증방에 소속되어있지 않습니다"));
 
-        List<Certification> certificationList = certificationRepository.findAllByRoomUser(roomuser)
+        List<Certification> certificationList = certificationRepository.findAllByRoomMember(roommember)
                 .orElse(new ArrayList<>());
-        log.info("{}", roomuser);
+        log.info("{}", roommember);
         log.info("size = {}", certificationList.size());
         List<DailyGoalResponseData> calender = getEmptyMonth();
         LocalDateTime now = LocalDateTime.now();
@@ -179,12 +177,12 @@ public class StatisticsService {
 
     // TODO
     // 테스트 필요함
-    public List<DailyGoalResponseData> getWeeklyGoal(UserContext userContext) {
-        User user = userRepository.findById(userContext.getUserId())
+    public List<DailyGoalResponseData> getWeeklyGoal(MemberContext memberContext) {
+        Member member = memberRepository.findById(memberContext.getMemberId())
                 .orElseThrow(() -> new NotFoundException("유저를 찾을 수 없습니다"));
-        List<RoomUser> roomUser = roomUserRepository.findAllByUser(user)
+        List<com.dodo.roommember.domain.RoomMember> roomMember = roomMemberRepository.findAllByMember(member)
                 .orElse(new ArrayList<>());
-        List<Certification> certificationList = certificationRepository.findAllByRoomUserIn(roomUser)
+        List<Certification> certificationList = certificationRepository.findAllByRoomMemberIn(roomMember)
                 .orElse(new ArrayList<>());
         List<LocalDateTime> thisWeek = getThisWeek();
         log.info("start = {}", thisWeek.get(0));
@@ -208,13 +206,13 @@ public class StatisticsService {
 
 
     // 이번주의 시작과 끝을 반환
-    public RoomProfileData getRoomProfile(UserContext userContext, Long roomUserId) {
-        RoomUser roomUser = roomUserRepository.findById(roomUserId)
+    public RoomProfileData getRoomProfile(MemberContext memberContext, Long roomMemberId) {
+        com.dodo.roommember.domain.RoomMember roomMember = roomMemberRepository.findById(roomMemberId)
                 .orElseThrow(() -> new NotFoundException("회원을 찾을 수 없습니다"));
 
 
-        String since = roomUser.getCreatedTime().format(DateTimeFormatter.ofPattern("yyyy. MM. dd."));
-        List<Certification> certificationList = certificationRepository.findAllByRoomUser(roomUser)
+        String since = roomMember.getCreatedTime().format(DateTimeFormatter.ofPattern("yyyy. MM. dd."));
+        List<Certification> certificationList = certificationRepository.findAllByRoomMember(roomMember)
                 .orElse(new ArrayList<Certification>());
 
         List<LocalDateTime> thisWeek = getThisWeek();
@@ -228,12 +226,12 @@ public class StatisticsService {
                 }).count();
 
         return RoomProfileData.builder()
-                .roomUserId(roomUserId)
-                .userName(roomUser.getUser().getName())
+                .roomMemberId(roomMemberId)
+                .memberName(roomMember.getMember().getName())
                 .since(since)
-                .image(roomUser.getUser().getImage())
+                .image(roomMember.getMember().getImage())
                 .success((long) certificationList.size())
-                .allSuccess(ChronoUnit.DAYS.between(roomUser.getCreatedTime(), LocalDateTime.now()))
+                .allSuccess(ChronoUnit.DAYS.between(roomMember.getCreatedTime(), LocalDateTime.now()))
                 .lately(latelySuccess)
                 .allLately(7L)
                 .build();
@@ -241,12 +239,12 @@ public class StatisticsService {
     }
 
     // TODO
-    public List<AlbumResponseData> getAlbum(UserContext userContext) {
-        User user = userRepository.findById(userContext.getUserId())
+    public List<AlbumResponseData> getAlbum(MemberContext memberContext) {
+        Member member = memberRepository.findById(memberContext.getMemberId())
                 .orElseThrow(() -> new NotFoundException("유저를 찾을 수 없습니다"));
-        List<RoomUser> roomUserList = roomUserRepository.findAllByUser(user)
+        List<com.dodo.roommember.domain.RoomMember> roomMemberList = roomMemberRepository.findAllByMember(member)
                 .orElse(new ArrayList<>());
-        return certificationRepository.findAllByRoomUserIn(roomUserList)
+        return certificationRepository.findAllByRoomMemberIn(roomMemberList)
                 .orElse(new ArrayList<>())
                 .stream()
                 .map(AlbumResponseData::new)

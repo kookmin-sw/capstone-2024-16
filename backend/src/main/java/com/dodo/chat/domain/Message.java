@@ -20,7 +20,7 @@ public class Message {
     private Long id;
 
     private Long roomId;
-    private Long userId;
+    private Long memberId;
     private String message;
     @CreatedDate
     private LocalDateTime time;

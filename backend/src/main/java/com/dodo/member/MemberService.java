@@ -1,15 +1,15 @@
-package com.dodo.user;
+package com.dodo.member;
 
 import com.dodo.exception.NotFoundException;
 import com.dodo.image.ImageRepository;
 import com.dodo.image.ImageService;
 import com.dodo.image.domain.Image;
 import com.dodo.token.TokenService;
-import com.dodo.user.domain.AuthenticationType;
-import com.dodo.user.domain.PasswordAuthentication;
-import com.dodo.user.domain.User;
-import com.dodo.user.domain.UserContext;
-import com.dodo.user.dto.*;
+import com.dodo.member.domain.AuthenticationType;
+import com.dodo.member.domain.PasswordAuthentication;
+import com.dodo.member.domain.Member;
+import com.dodo.member.domain.MemberContext;
+import com.dodo.member.dto.*;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,9 +23,9 @@ import java.io.IOException;
 @RequiredArgsConstructor
 @Service
 @Slf4j
-public class UserService {
+public class MemberService {
 
-    private final UserRepository userRepository;
+    private final MemberRepository memberRepository;
     private final PasswordAuthenticationRepository passwordAuthenticationRepository;
     private final PasswordEncoder passwordEncoder;
     private final TokenService tokenService;
@@ -34,8 +34,8 @@ public class UserService {
 
 
     @Transactional
-    public User register(UserCreateRequestData request) {
-        if(userRepository.existsByEmail(request.getEmail())) {
+    public Member register(MemberCreateRequestData request) {
+        if(memberRepository.existsByEmail(request.getEmail())) {
             throw new RuntimeException("이메일이 이미 존재합니다");
         }
 
@@ -46,7 +46,7 @@ public class UserService {
 
 
         log.info("{}", request.getType());
-        User user = User.builder()
+        Member member = Member.builder()
                 .authenticationType(request.getType())
                 .email(request.getEmail())
                 .name(request.getEmail().split("@")[0])
@@ -55,42 +55,42 @@ public class UserService {
                 .introduceMessage("")
                 .build();
 
-        userRepository.save(user);
+        memberRepository.save(member);
 
-        if(request instanceof UserCreateRequestData.PasswordUserCreateRequestData) {
+        if(request instanceof MemberCreateRequestData.PasswordMemberCreateRequestData) {
             // 비밀번호 로그인
 
-            var req = (UserCreateRequestData.PasswordUserCreateRequestData)request;
+            var req = (MemberCreateRequestData.PasswordMemberCreateRequestData)request;
             String password = passwordEncoder.encode(req.getPassword());
-            passwordAuthenticationRepository.save(new PasswordAuthentication(user, password));
+            passwordAuthenticationRepository.save(new PasswordAuthentication(member, password));
         } else {
             // 소셜로그인
 
         }
 
-        return user;
+        return member;
     }
 
-    public String login(UserLoginRequestData request) {
+    public String login(MemberLoginRequestData request) {
         log.info("{}", request.getAuthenticationType());
-        Long userId = getUserId(request);
-        return tokenService.makeToken(userId);
+        Long memberId = getMemberId(request);
+        return tokenService.makeToken(memberId);
     }
 
 
-    private Long getUserId(UserLoginRequestData request) {
+    private Long getMemberId(MemberLoginRequestData request) {
         if(request.getAuthenticationType() == AuthenticationType.PASSWORD) {
             // 비밀번호 로그인
-            UserLoginRequestData.PasswordLoginRequestData req = (UserLoginRequestData.PasswordLoginRequestData)request;
-            User user = userRepository.findByEmail(req.getEmail())
+            MemberLoginRequestData.PasswordLoginRequestData req = (MemberLoginRequestData.PasswordLoginRequestData)request;
+            Member member = memberRepository.findByEmail(req.getEmail())
                     .orElseThrow(() -> new NotFoundException("유저를 찾을 수 없습니다"));
-            PasswordAuthentication passwordAuthentication = passwordAuthenticationRepository.findByUser(user)
+            PasswordAuthentication passwordAuthentication = passwordAuthenticationRepository.findByMember(member)
                     .orElseThrow(() -> new NotFoundException("비밀번호 인증 정보를 찾을 수 없습니다"));
             if (passwordEncoder.matches(
                     req.getPassword(),
                     passwordAuthentication.getPassword())
             ) {
-                return user.getId();
+                return member.getId();
             }
             throw new NotFoundException();
         } else {
@@ -101,25 +101,25 @@ public class UserService {
         return 0L;
     }
 
-    public UserData getMyData(UserContext userContext) {
-        User user = userRepository.findById(userContext.getUserId())
+    public MemberData getMyData(MemberContext memberContext) {
+        Member member = memberRepository.findById(memberContext.getMemberId())
                 .orElseThrow(() -> new NotFoundException("유저를 찾을 수 없습니다"));
 
-        return new UserData(user);
+        return new MemberData(member);
     }
 
-    public void update(UserContext userContext, UserData userData) {
-        User user = userRepository.findById(userContext.getUserId())
+    public void update(MemberContext memberContext, MemberData memberData) {
+        Member member = memberRepository.findById(memberContext.getMemberId())
                 .orElseThrow(() -> new NotFoundException("유저를 찾을 수 없습니다"));
 
-        user.update(userData.getName(), userData.getImage(), userData.getIntroduceMessage());
-        userRepository.save(user);
+        member.update(memberData.getName(), memberData.getImage(), memberData.getIntroduceMessage());
+        memberRepository.save(member);
     }
 
     @PostConstruct
     public void makeInitialData() {
         Image image = imageRepository.findById(1L).get();
-        User user = User.builder()
+        Member member = Member.builder()
                 .authenticationType(AuthenticationType.PASSWORD)
                 .email("hello@hello.com")
                 .name("hello")
@@ -128,15 +128,15 @@ public class UserService {
                 .introduceMessage("")
                 .build();
 
-        userRepository.save(user);
+        memberRepository.save(member);
         String password = passwordEncoder.encode("123");
 
-        passwordAuthenticationRepository.save(new PasswordAuthentication(user, password));
+        passwordAuthenticationRepository.save(new PasswordAuthentication(member, password));
     }
 
-    public boolean checkPassword(UserContext userContext, String password) {
-        User user = getUser(userContext);
-        PasswordAuthentication passwordAuthentication = passwordAuthenticationRepository.findByUser(user).get();
+    public boolean checkPassword(MemberContext memberContext, String password) {
+        Member member = getMember(memberContext);
+        PasswordAuthentication passwordAuthentication = passwordAuthenticationRepository.findByMember(member).get();
         if(!passwordEncoder.matches(password, passwordAuthentication.getPassword())) {
             throw new RuntimeException("비밀번호가 일치하지 않습니다.");
         }
@@ -144,9 +144,9 @@ public class UserService {
     }
 
     @Transactional
-    public boolean changePassword(UserContext userContext, PasswordChangeRequestData passwordChangeRequestData) {
-        User user = getUser(userContext);
-        PasswordAuthentication passwordAuthentication = passwordAuthenticationRepository.findByUser(user).get();
+    public boolean changePassword(MemberContext memberContext, PasswordChangeRequestData passwordChangeRequestData) {
+        Member member = getMember(memberContext);
+        PasswordAuthentication passwordAuthentication = passwordAuthenticationRepository.findByMember(member).get();
         if(!passwordEncoder.matches(passwordChangeRequestData.getCurrentPassword(), passwordAuthentication.getPassword())) {
             throw new RuntimeException("나의 비밀번호가 일치하지 않습니다.");
         }
@@ -162,32 +162,32 @@ public class UserService {
 
 
     @Transactional
-    public ProfileChangeResponseData changeProfile(UserContext userContext, MultipartFile img, UserUpdateRequestData requestData) throws IOException {
-        User user = getUser(userContext);
+    public ProfileChangeResponseData changeProfile(MemberContext memberContext, MultipartFile img, MemberUpdateRequestData requestData) throws IOException {
+        Member member = getMember(memberContext);
         if(img != null) {
             Image image = imageService.save(img);
-            user.setImage(image);
+            member.setImage(image);
         }
         if(requestData != null) {
-            if(requestData.getName() != null) user.setName(requestData.getName());
-            if(requestData.getIntroduceMessage() != null) user.setIntroduceMessage(requestData.getIntroduceMessage());
+            if(requestData.getName() != null) member.setName(requestData.getName());
+            if(requestData.getIntroduceMessage() != null) member.setIntroduceMessage(requestData.getIntroduceMessage());
         }
-        return new ProfileChangeResponseData(user);
+        return new ProfileChangeResponseData(member);
     }
 
-    public ProfileRequestData getProfile(UserContext userContext) {
-        User user = getUser(userContext);
-        return new ProfileRequestData(user);
+    public ProfileRequestData getProfile(MemberContext memberContext) {
+        Member member = getMember(memberContext);
+        return new ProfileRequestData(member);
     }
 
-    public Image getImage(UserContext userContext) {
-        User user = getUser(userContext);
-        return user.getImage();
+    public Image getImage(MemberContext memberContext) {
+        Member member = getMember(memberContext);
+        return member.getImage();
     }
 
     @Transactional
-    public User getUser(UserContext userContext) {
-        return userRepository.findById(userContext.getUserId())
+    public Member getMember(MemberContext memberContext) {
+        return memberRepository.findById(memberContext.getMemberId())
                 .orElseThrow(() -> new NotFoundException("유저정보가 올바르지 않습니다."));
     }
 }

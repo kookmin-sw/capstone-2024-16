@@ -3,7 +3,7 @@ package com.dodo.config.auth;
 
 import com.dodo.config.auth.service.AuthService;
 import com.dodo.exception.UnauthorizedException;
-import com.dodo.user.domain.UserContext;
+import com.dodo.member.domain.MemberContext;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -15,11 +15,11 @@ import org.springframework.web.servlet.HandlerInterceptor;
 @Component
 @Slf4j
 @RequiredArgsConstructor
-public class UserAuthenticationInterceptor implements HandlerInterceptor {
+public class MemberAuthenticationInterceptor implements HandlerInterceptor {
 
     private final AuthService authService;
 
-    private final String USER_CONTEXT = "userContext";
+    private final String MEMBER_CONTEXT = "memberContext";
     private static final String AUTHORIZATION_HEADER = "Authorization";
     private static final String BEARER_PREFIX = "Bearer ";
 
@@ -29,7 +29,7 @@ public class UserAuthenticationInterceptor implements HandlerInterceptor {
      * https://twer.tistory.com/entry/Spring-Interceptor-%EC%BB%A4%EC%8A%A4%ED%85%80-%EC%96%B4%EB%85%B8%ED%85%8C%EC%9D%B4%EC%85%98%EA%B3%BC-Intercepter-%EA%B5%AC%ED%98%84
      *
      * TODO
-     * 현재는 UserContext에 유저아이디만 들어가는데 룸아이디까지 들어가게 하면 편할듯
+     * 현재는 MemberContext에 유저아이디만 들어가는데 룸아이디까지 들어가게 하면 편할듯
      */
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
@@ -39,7 +39,7 @@ public class UserAuthenticationInterceptor implements HandlerInterceptor {
 
 
         // CustomAuthentication 어노테이션이 있는지 확인함
-        // 아니면 이미 USER_CONTEXT가 들어가 있는 경우를 처리함
+        // 아니면 이미 MEMBER_CONTEXT가 들어가 있는 경우를 처리함
         HandlerMethod handlerMethod = (HandlerMethod) handler;
         if ((handlerMethod.getMethodAnnotation(CustomAuthentication.class) == null
             && handlerMethod.getBeanType().getAnnotation(CustomAuthentication.class) == null)
@@ -48,7 +48,7 @@ public class UserAuthenticationInterceptor implements HandlerInterceptor {
         }
 
 
-        if(request.getAttribute(USER_CONTEXT) != null) {
+        if(request.getAttribute(MEMBER_CONTEXT) != null) {
             return HandlerInterceptor.super.preHandle(request,response,handler);
         }
 
@@ -62,8 +62,8 @@ public class UserAuthenticationInterceptor implements HandlerInterceptor {
             throw new UnauthorizedException("인증 헤더가 필요합니다");
         }
 
-        UserContext context = authService.authenticate(authorizationToken);
-        request.setAttribute(USER_CONTEXT, context);
+        MemberContext context = authService.authenticate(authorizationToken);
+        request.setAttribute(MEMBER_CONTEXT, context);
 
         return true;
     }

@@ -13,8 +13,8 @@ public class RoomListData {
     private Long roomId;
     private String name;
     private Image image;
-    private Long maxUser;
-    private Long nowUser;
+    private Long maxMember;
+    private Long nowMember;
     private String password;
     private CertificationStatus status;
     private RoomType roomType;
@@ -27,8 +27,8 @@ public class RoomListData {
         this.name = room.getName();
         this.image = room.getImage();
         this.roomType = room.getRoomType();
-        this.maxUser = room.getMaxUser();
-        this.nowUser = room.getNowUser();
+        this.maxMember = room.getMaxMember();
+        this.nowMember = room.getNowMember();
         this.password = room.getPassword();
         this.frequency = room.getFrequency();
         this.status = CertificationStatus.FAIL;

@@ -1,7 +1,6 @@
 package com.dodo.certification.domain;
 
 import com.dodo.image.domain.Image;
-import com.dodo.roomuser.domain.RoomUser;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -25,8 +24,8 @@ public class Certification {
     private Long id;
 
     @ManyToOne
-    @JoinColumn(name = "room_user_id")
-    private RoomUser roomUser;
+    @JoinColumn(name = "room_member_id")
+    private com.dodo.roommember.domain.RoomMember roomMember;
 
     @Enumerated(EnumType.STRING)
     private CertificationStatus status;

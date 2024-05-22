@@ -1,11 +1,9 @@
 package com.dodo.room.domain;
 
 import com.dodo.image.domain.Image;
-import com.dodo.roomuser.domain.RoomUser;
 import com.dodo.tag.domain.RoomTag;
 import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.ColumnDefault;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -25,8 +23,8 @@ public class Room {
     private String notice;
     private LocalDateTime endDay;
     @Builder.Default
-    private Long maxUser = 50L;
-    @Setter private Long nowUser;
+    private Long maxMember = 50L;
+    @Setter private Long nowMember;
     private Boolean canChat;
     private Integer numOfVoteSuccess;
     private Integer numOfVoteFail;
@@ -60,14 +58,14 @@ public class Room {
     private Category category;
 
     @OneToMany(mappedBy = "room")
-    private List<RoomUser> roomUsers;
+    private List<com.dodo.roommember.domain.RoomMember> roomMembers;
 
     @OneToMany(mappedBy = "room")
     private List<RoomTag> roomTags;
 
     // 인증방 기능 설정
     public void update(String name, String info,
-                       Long maxUser, Boolean canChat, Integer numOfVoteSuccess,
+                       Long maxMember, Boolean canChat, Integer numOfVoteSuccess,
                        Integer numOfVoteFail, Periodicity periodicity,
                        Integer frequency, CertificationType certificationType, String password) {
         if (name != null){this.name = name;}
@@ -79,9 +77,9 @@ public class Room {
         if (periodicity != null){this.periodicity = periodicity;}
         if (frequency != null){this.frequency = frequency;}
         if (certificationType != null){this.certificationType = certificationType;}
-        if (maxUser != null){
-            this.maxUser = maxUser;
-            this.isFull = maxUser.equals(this.nowUser);
+        if (maxMember != null){
+            this.maxMember = maxMember;
+            this.isFull = maxMember.equals(this.nowMember);
         }
     }
 

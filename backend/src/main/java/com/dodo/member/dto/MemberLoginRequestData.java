@@ -1,6 +1,6 @@
-package com.dodo.user.dto;
+package com.dodo.member.dto;
 
-import com.dodo.user.domain.AuthenticationType;
+import com.dodo.member.domain.AuthenticationType;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.fasterxml.jackson.annotation.JsonTypeName;
@@ -14,15 +14,15 @@ import lombok.NoArgsConstructor;
         property = "type"
 )
 @JsonSubTypes({
-        @JsonSubTypes.Type(value = UserLoginRequestData.PasswordLoginRequestData.class, name = "password")
+        @JsonSubTypes.Type(value = MemberLoginRequestData.PasswordLoginRequestData.class, name = "password")
 //        @JsonSubTypes.Type(value =..class, name = "social"),
 })
-public abstract class UserLoginRequestData {
+public abstract class MemberLoginRequestData {
     private AuthenticationType authenticationType;
 
     @JsonTypeName("social")
     @Getter
-    public static class SocialLoginRequestData extends UserLoginRequestData {
+    public static class SocialLoginRequestData extends MemberLoginRequestData {
         private String token;
 
         public SocialLoginRequestData() {
@@ -32,7 +32,7 @@ public abstract class UserLoginRequestData {
 
     @JsonTypeName("password")
     @Getter
-    public static class PasswordLoginRequestData extends UserLoginRequestData {
+    public static class PasswordLoginRequestData extends MemberLoginRequestData {
         private String email;
         private String password;
 
@@ -41,7 +41,7 @@ public abstract class UserLoginRequestData {
         }
     }
 
-    public UserLoginRequestData(AuthenticationType authenticationType) {
+    public MemberLoginRequestData(AuthenticationType authenticationType) {
         this.authenticationType = authenticationType;
     }
 }

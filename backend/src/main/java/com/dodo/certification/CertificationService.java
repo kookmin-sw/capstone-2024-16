@@ -14,12 +14,10 @@ import com.dodo.room.domain.Category;
 import com.dodo.room.domain.Periodicity;
 import com.dodo.room.domain.Room;
 import com.dodo.room.domain.RoomType;
-import com.dodo.roomuser.RoomUserRepository;
-import com.dodo.roomuser.domain.RoomUser;
 import com.dodo.statistics.StatisticsService;
-import com.dodo.user.UserRepository;
-import com.dodo.user.domain.User;
-import com.dodo.user.domain.UserContext;
+import com.dodo.member.MemberRepository;
+import com.dodo.member.domain.Member;
+import com.dodo.member.domain.MemberContext;
 import jakarta.transaction.Transactional;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -29,7 +27,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
-import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
@@ -56,9 +53,9 @@ public class CertificationService {
 
 
     private final CertificationRepository certificationRepository;
-    private final UserRepository userRepository;
+    private final MemberRepository memberRepository;
     private final RoomRepository roomRepository;
-    private final RoomUserRepository roomUserRepository;
+    private final com.dodo.roommember.RoomMemberRepository roomMemberRepository;
     private final VoteRepository voteRepository;
     private final ImageService imageService;
     private final StatisticsService statisticsService;
@@ -66,17 +63,17 @@ public class CertificationService {
     private static final int DAILY_SUCCESS_UPDATE_MILEAGE = 10;
     private static final int WEEKLY_SUCCESS_UPDATE_MILEAGE = 50;
 
-    public CertificationUploadResponseData makeCertification(UserContext userContext, Long roomId, MultipartFile img) throws IOException {
-        User user = getUser(userContext);
+    public CertificationUploadResponseData makeCertification(MemberContext memberContext, Long roomId, MultipartFile img) throws IOException {
+        Member member = getMember(memberContext);
         Room room = roomRepository.findById(roomId)
                 .orElseThrow(() -> new NotFoundException("인증방 정보를 찾을 수 없습니다"));
-        RoomUser roomUser = roomUserRepository.findByUserAndRoom(user, room)
+        com.dodo.roommember.domain.RoomMember roomMember = roomMemberRepository.findByMemberAndRoom(member, room)
                 .orElseThrow(() -> new NotFoundException("인증방에 소속되어 있지 않습니다"));
         Image image = imageService.save(img);
 
         Certification certification = certificationRepository.save(Certification.builder()
                 .status(CertificationStatus.WAIT)
-                .roomUser(roomUser)
+                .roomMember(roomMember)
                 .image(image)
                 .voteUp(0)
                 .voteDown(0)
@@ -97,7 +94,7 @@ public class CertificationService {
             transferToAi(room, certification);
         }
 
-        upCertificateTime(roomId, userContext);
+        upCertificateTime(roomId, memberContext);
         return new CertificationUploadResponseData(certification);
     }
 
@@ -139,26 +136,26 @@ public class CertificationService {
 
 
     public CertificationDetailResponseData getCertificationDetail(
-            UserContext userContext,
+            MemberContext memberContext,
             Long certificationId
     ) {
-        User user = getUser(userContext);
+        Member member = getMember(memberContext);
         Certification certification = certificationRepository.findById(certificationId)
                 .orElseThrow(() -> new NotFoundException("인증 정보를 찾을 수 없습니다"));
-        Vote vote = voteRepository.findByUserAndCertification(user, certification).orElse(null);
-        Room room = certification.getRoomUser().getRoom();
+        Vote vote = voteRepository.findByMemberAndCertification(member, certification).orElse(null);
+        Room room = certification.getRoomMember().getRoom();
         return new CertificationDetailResponseData(certification, vote, room);
     }
 
     @Transactional
-    public CertificationDetailResponseData voting(UserContext userContext, VoteRequestData requestData) {
-        User user = getUser(userContext);
+    public CertificationDetailResponseData voting(MemberContext memberContext, VoteRequestData requestData) {
+        Member member = getMember(memberContext);
         Certification certification = certificationRepository.findById(requestData.getCertificationId())
                 .orElseThrow(() -> new NotFoundException("인증 정보를 찾을 수 없습니다"));
-        Room room = certification.getRoomUser().getRoom();
+        Room room = certification.getRoomMember().getRoom();
 
-        Vote vote = voteRepository.findByUserAndCertification(user, certification)
-                .orElse(new Vote(user, certification));
+        Vote vote = voteRepository.findByMemberAndCertification(member, certification)
+                .orElse(new Vote(member, certification));
 
         if(vote.getVoteStatus() == VoteStatus.NONE) {
             if(requestData.getVoteStatus() == VoteStatus.UP) certification.addVoteUp();
@@ -185,7 +182,7 @@ public class CertificationService {
 
         if(certification.getVoteDown().equals(room.getNumOfVoteFail())) {
             certification.setStatus(CertificationStatus.FAIL);
-            downCertificateTime(room.getId(), userContext);
+            downCertificateTime(room.getId(), memberContext);
         }
 
         return new CertificationDetailResponseData(certification, vote, room);
@@ -193,14 +190,14 @@ public class CertificationService {
 
     // 방장 승인, 거부
     @Transactional
-    public CertificationDetailResponseData approval(UserContext userContext, ApprovalRequestData requestData) {
-        User user = getUser(userContext);
+    public CertificationDetailResponseData approval(MemberContext memberContext, ApprovalRequestData requestData) {
+        Member member = getMember(memberContext);
         Certification certification = certificationRepository.findById(requestData.getCertificationId())
                 .orElseThrow(() -> new NotFoundException("인증 정보를 찾을 수 없습니다"));
-        Room room = certification.getRoomUser().getRoom();
-        RoomUser roomUser = roomUserRepository.findByUserAndRoom(user, room)
+        Room room = certification.getRoomMember().getRoom();
+        com.dodo.roommember.domain.RoomMember roomMember = roomMemberRepository.findByMemberAndRoom(member, room)
                 .orElseThrow(() -> new NotFoundException("인증방에 소속되어 있지 않습니다"));
-        if(roomUser.getIsManager()) {
+        if(roomMember.getIsManager()) {
             certification.setStatus(requestData.getStatus());
             if(certification.getStatus() == CertificationStatus.SUCCESS) {
                 successCertificationToUpdateMileage(certification);
@@ -213,12 +210,12 @@ public class CertificationService {
     }
 
     // 인증방의 인증 리스트 불러오기
-    public List<CertificationListResponseData> getList(UserContext userContext, Long roomId) {
-        User user = getUser(userContext);
+    public List<CertificationListResponseData> getList(MemberContext memberContext, Long roomId) {
+        Member member = getMember(memberContext);
         Room room = roomRepository.findById(roomId)
                 .orElseThrow(() -> new NotFoundException("인증방을 찾을 수 없습니다"));
 
-        List<RoomUser> roomUserList = roomUserRepository.findAllByRoomId(roomId)
+        List<com.dodo.roommember.domain.RoomMember> roomMemberList = roomMemberRepository.findAllByRoomId(roomId)
                 .orElseThrow(() -> new NotFoundException("인증방의 회원을 찾을 수 엇습니다"));
 
 
@@ -232,29 +229,29 @@ public class CertificationService {
         if(room.getPeriodicity() == Periodicity.DAILY) {
 
             String todayString = today.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
-            Map<RoomUser, List<Certification>> certificationMap = certificationRepository.findAllByRoomUserIn(roomUserList)
+            Map<com.dodo.roommember.domain.RoomMember, List<Certification>> certificationMap = certificationRepository.findAllByRoomMemberIn(roomMemberList)
                     .orElse(new ArrayList<>())
                     .stream()
                     .filter(c -> c.getCreatedTime()
                             .format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
                             .equals(todayString))
-                    .collect(Collectors.groupingBy(Certification::getRoomUser));
+                    .collect(Collectors.groupingBy(Certification::getRoomMember));
 
-            grouping(roomUserList, groupList, certificationMap);
+            grouping(roomMemberList, groupList, certificationMap);
 
         } else if(room.getPeriodicity() == Periodicity.WEEKLY){
 
             List<LocalDateTime> thisWeek = getThisWeek();
-            Map<RoomUser, List<Certification>> certificationMap = certificationRepository.findAllByRoomUserIn(roomUserList)
+            Map<com.dodo.roommember.domain.RoomMember, List<Certification>> certificationMap = certificationRepository.findAllByRoomMemberIn(roomMemberList)
                     .orElse(new ArrayList<>())
                     .stream()
                     .filter(c -> {
                         LocalDateTime ctime = c.getCreatedTime();
                         return ctime.isAfter(thisWeek.get(0)) && ctime.isBefore(thisWeek.get(1));
                     })
-                    .collect(Collectors.groupingBy(Certification::getRoomUser));
+                    .collect(Collectors.groupingBy(Certification::getRoomMember));
 
-            grouping(roomUserList, groupList, certificationMap);
+            grouping(roomMemberList, groupList, certificationMap);
 
         }
 
@@ -265,12 +262,12 @@ public class CertificationService {
 
     // 일단위, 주단위로 모인 인증들을 토대로 인증방에서 어떻게 보여줄지 그룹핑함
     // -> 맵의 리스트를 돌며 wait, success 개수를 센다.
-    // -> roomuser와 함께 클래스에 넣어서 리스트를 만든다.
-    private List<CertificationListResponseData> grouping(List<RoomUser> roomUserList, List<CertificationGroup> groupList, Map<RoomUser, List<Certification>> certificationMap) {
-        roomUserList.forEach(
-                roomUser -> {
-                    CertificationGroup group = new CertificationGroup(roomUser);
-                    List<Certification> certificationList = certificationMap.get(roomUser);
+    // -> roommember와 함께 클래스에 넣어서 리스트를 만든다.
+    private List<CertificationListResponseData> grouping(List<com.dodo.roommember.domain.RoomMember> roomMemberList, List<CertificationGroup> groupList, Map<com.dodo.roommember.domain.RoomMember, List<Certification>> certificationMap) {
+        roomMemberList.forEach(
+                roomMember -> {
+                    CertificationGroup group = new CertificationGroup(roomMember);
+                    List<Certification> certificationList = certificationMap.get(roomMember);
                     if(certificationList != null) {
                         certificationList
                                 .forEach(c -> {
@@ -292,12 +289,12 @@ public class CertificationService {
     @Data
     @EqualsAndHashCode
     public static class CertificationGroup {
-        private RoomUser roomUser;
+        private com.dodo.roommember.domain.RoomMember roomMember;
         private List<Certification> certificationList;
         private Integer wait;
         private Integer success;
-        public CertificationGroup(RoomUser roomUser) {
-            this.roomUser = roomUser;
+        public CertificationGroup(com.dodo.roommember.domain.RoomMember roomMember) {
+            this.roomMember = roomMember;
             this.wait = 0;
             this.success = 0;
             this.certificationList = new ArrayList<>();
@@ -339,8 +336,8 @@ public class CertificationService {
         return null;
     }
 
-    private User getUser(UserContext userContext) {
-        return userRepository.findById(userContext.getUserId())
+    private Member getMember(MemberContext memberContext) {
+        return memberRepository.findById(memberContext.getMemberId())
                 .orElseThrow(() -> new NotFoundException("유저를 찾을 수 없습니다"));
     }
 
@@ -356,20 +353,20 @@ public class CertificationService {
     // 일간인증인지 주간인증인지 파악하고
     // 조건을 만족한다면 마일리지를 제공
     private void successCertificationToUpdateMileage(Certification certification) {
-        User successUser = certification.getRoomUser().getUser();
-        Room room = certification.getRoomUser().getRoom();
+        Member successMember = certification.getRoomMember().getMember();
+        Room room = certification.getRoomMember().getRoom();
 
         if(room.getPeriodicity() == Periodicity.DAILY) {
             // 일간
 
-            successUser.updateMileage(successUser.getMileage() + DAILY_SUCCESS_UPDATE_MILEAGE);
+            successMember.updateMileage(successMember.getMileage() + DAILY_SUCCESS_UPDATE_MILEAGE);
         } else {
             // 주간
             // 주간 인증횟수 -> 주 n회 인증방이라면 n번쨰 인증 성공 시 50웑을 준다.
 
-            RoomUser roomUser = certification.getRoomUser();
+            com.dodo.roommember.domain.RoomMember roomMember = certification.getRoomMember();
             List<LocalDateTime> thisWeek = statisticsService.getThisWeek();
-            List<Certification> certificationList = certificationRepository.findAllByRoomUser(roomUser)
+            List<Certification> certificationList = certificationRepository.findAllByRoomMember(roomMember)
                     .orElse(new ArrayList<>());
             long count = certificationList.stream()
                     .filter(ct -> ct.getStatus() == CertificationStatus.SUCCESS
@@ -377,48 +374,48 @@ public class CertificationService {
                    && ct.getCreatedTime().isBefore(thisWeek.get(1))
                     ).count();
             if(count == room.getFrequency()) {
-                successUser.updateMileage(successUser.getMileage() + WEEKLY_SUCCESS_UPDATE_MILEAGE);
+                successMember.updateMileage(successMember.getMileage() + WEEKLY_SUCCESS_UPDATE_MILEAGE);
             }
         }
     }
 
-    public void upCertificateTime(Long roomId, UserContext userContext){
+    public void upCertificateTime(Long roomId, MemberContext memberContext){
         Room room = roomRepository.findById(roomId).orElseThrow(NotFoundException::new);
-        User user = getUser(userContext);
-        RoomUser roomUser = roomUserRepository.findByUserAndRoom(user, room).orElseThrow(NotFoundException::new);
+        Member member = getMember(memberContext);
+        com.dodo.roommember.domain.RoomMember roomMember = roomMemberRepository.findByMemberAndRoom(member, room).orElseThrow(NotFoundException::new);
 
-        roomUser.setCertificateTime(roomUser.getCertificateTime() + 1);
-        roomUserRepository.save(roomUser);
+        roomMember.setCertificateTime(roomMember.getCertificateTime() + 1);
+        roomMemberRepository.save(roomMember);
     }
 
-    public void downCertificateTime(Long roomId, UserContext userContext){
+    public void downCertificateTime(Long roomId, MemberContext memberContext){
         Room room = roomRepository.findById(roomId).orElseThrow(NotFoundException::new);
-        User user = getUser(userContext);
-        RoomUser roomUser = roomUserRepository.findByUserAndRoom(user, room).orElseThrow(NotFoundException::new);
+        Member member = getMember(memberContext);
+        com.dodo.roommember.domain.RoomMember roomMember = roomMemberRepository.findByMemberAndRoom(member, room).orElseThrow(NotFoundException::new);
 
-        roomUser.setCertificateTime(roomUser.getCertificateTime() - 1);
-        roomUserRepository.save(roomUser);
+        roomMember.setCertificateTime(roomMember.getCertificateTime() - 1);
+        roomMemberRepository.save(roomMember);
     }
 
     @Scheduled(cron = "0 0 0 * * *", zone = "Asia/Seoul")
     public void initDailyCertificateTime(){
-        List<RoomUser> roomUserList = roomUserRepository.findAll().stream()
-                .filter(roomUser -> roomUser.getRoom().getPeriodicity() == Periodicity.DAILY)
+        List<com.dodo.roommember.domain.RoomMember> roomMemberList = roomMemberRepository.findAll().stream()
+                .filter(roomMember -> roomMember.getRoom().getPeriodicity() == Periodicity.DAILY)
                 .toList();
-        for (RoomUser roomUser : roomUserList){
-            roomUser.setCertificateTime(0);
-            roomUserRepository.save(roomUser);
+        for (com.dodo.roommember.domain.RoomMember roomMember : roomMemberList){
+            roomMember.setCertificateTime(0);
+            roomMemberRepository.save(roomMember);
         }
     }
 
     @Scheduled(cron = "0 0 0 ? * 1", zone = "Asia/Seoul")
     public void initWeeklyCertificateTime(){
-        List<RoomUser> roomUserList = roomUserRepository.findAll().stream()
-                .filter(roomUser -> roomUser.getRoom().getPeriodicity() == Periodicity.WEEKLY)
+        List<com.dodo.roommember.domain.RoomMember> roomMemberList = roomMemberRepository.findAll().stream()
+                .filter(roomMember -> roomMember.getRoom().getPeriodicity() == Periodicity.WEEKLY)
                 .toList();
-        for (RoomUser roomUser : roomUserList){
-            roomUser.setCertificateTime(0);
-            roomUserRepository.save(roomUser);
+        for (com.dodo.roommember.domain.RoomMember roomMember : roomMemberList){
+            roomMember.setCertificateTime(0);
+            roomMemberRepository.save(roomMember);
         }
     }
 

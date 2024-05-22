@@ -1,9 +1,9 @@
-package com.dodo.user.dto;
+package com.dodo.member.dto;
 
 import lombok.Data;
 
 @Data
-public class UserUpdateRequestData {
+public class MemberUpdateRequestData {
     private String name;
     private String introduceMessage;
 }

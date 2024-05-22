@@ -7,8 +7,8 @@ import lombok.Data;
 @Data
 @Builder
 public class RoomProfileData {
-    private Long roomUserId;
-    private String userName;
+    private Long roomMemberId;
+    private String memberName;
     private Image image;
     private String since;
     private Long success;

@@ -14,8 +14,8 @@ public class RoomJoinData {
     private Long roomId;
     private String name;
     private Image image;
-    private Long maxUser;
-    private Long nowUser;
+    private Long maxMember;
+    private Long nowMember;
     private String info;
     private LocalDateTime endDay;
     private String password;
@@ -34,8 +34,8 @@ public class RoomJoinData {
         this.name = room.getName();
         this.image = room.getImage();
         this.roomType = room.getRoomType();
-        this.maxUser = room.getMaxUser();
-        this.nowUser = room.getNowUser();
+        this.maxMember = room.getMaxMember();
+        this.nowMember = room.getNowMember();
         this.password = room.getPassword();
         this.info = room.getInfo();
         this.endDay = room.getEndDay();

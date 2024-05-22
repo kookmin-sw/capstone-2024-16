@@ -1,6 +1,6 @@
-package com.dodo.user.dto;
+package com.dodo.member.dto;
 
-import com.dodo.user.domain.AuthenticationType;
+import com.dodo.member.domain.AuthenticationType;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.fasterxml.jackson.annotation.JsonTypeName;
@@ -14,32 +14,32 @@ import lombok.NoArgsConstructor;
         property = "type"
 )
 @JsonSubTypes({
-        @JsonSubTypes.Type(value = UserCreateRequestData.PasswordUserCreateRequestData.class, name = "password"),
-        @JsonSubTypes.Type(value = UserCreateRequestData.SocialUserCreateRequestData.class, name = "social"),
+        @JsonSubTypes.Type(value = MemberCreateRequestData.PasswordMemberCreateRequestData.class, name = "password"),
+        @JsonSubTypes.Type(value = MemberCreateRequestData.SocialMemberCreateRequestData.class, name = "social"),
 })
-public abstract class UserCreateRequestData {
+public abstract class MemberCreateRequestData {
 
     @JsonTypeName("social")
     @Getter
-    public static class SocialUserCreateRequestData extends UserCreateRequestData {
+    public static class SocialMemberCreateRequestData extends MemberCreateRequestData {
 
         // TODO
         //
 
         String token;
-        public SocialUserCreateRequestData() {
+        public SocialMemberCreateRequestData() {
             super(AuthenticationType.SOCIAL);
         }
     }
 
     @JsonTypeName("password")
     @Getter
-    public static class PasswordUserCreateRequestData extends UserCreateRequestData {
+    public static class PasswordMemberCreateRequestData extends MemberCreateRequestData {
         private String password1;
         private String password2;
-        private String username;
+        private String membername;
 
-        public PasswordUserCreateRequestData() {
+        public PasswordMemberCreateRequestData() {
             super(AuthenticationType.PASSWORD);
         }
         public String getPassword() {
@@ -54,7 +54,7 @@ public abstract class UserCreateRequestData {
     private AuthenticationType type;
     private String email;
 
-    public UserCreateRequestData(AuthenticationType type) {
+    public MemberCreateRequestData(AuthenticationType type) {
         this.type = type;
     }
 

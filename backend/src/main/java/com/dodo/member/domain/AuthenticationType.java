@@ -1,4 +1,4 @@
-package com.dodo.user.domain;
+package com.dodo.member.domain;
 
 public enum AuthenticationType {
     PASSWORD,

@@ -34,7 +34,7 @@ public class ChatController {
         log.info("CHAT {}", chat);
         Message message = Message.builder()
                 .roomId(roomId)
-                .userId(chat.getUserId())
+                .memberId(chat.getMemberId())
                 .message(chat.getMessage())
                 .time(LocalDateTime.now())
                 .build();

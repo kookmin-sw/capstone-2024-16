@@ -1,4 +1,4 @@
-package com.dodo.user.domain;
+package com.dodo.member.domain;
 
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -15,12 +15,12 @@ public class PasswordAuthentication {
     private Long id;
 
     @OneToOne(fetch = FetchType.LAZY)
-    private User user;
+    private Member member;
 
     private String password;
 
-    public PasswordAuthentication(User user, String password) {
-        this.user = user;
+    public PasswordAuthentication(Member member, String password) {
+        this.member = member;
         this.password = password;
     }
 

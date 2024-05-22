@@ -16,8 +16,8 @@ public class RoomData {
     private Long roomId;
     private String name;
     private Image image;
-    private Long maxUser;
-    private Long nowUser;
+    private Long maxMember;
+    private Long nowMember;
     private LocalDateTime endDay;
     private Periodicity periodicity;
     private String pwd;
@@ -47,8 +47,8 @@ public class RoomData {
 
         roomData.roomId = room.getId();
         roomData.name = room.getName();
-        roomData.maxUser = room.getMaxUser();
-        roomData.nowUser = room.getNowUser();
+        roomData.maxMember = room.getMaxMember();
+        roomData.nowMember = room.getNowMember();
         roomData.endDay = room.getEndDay();
         roomData.periodicity = room.getPeriodicity();
         roomData.pwd = room.getPassword();

@@ -2,7 +2,6 @@ package com.dodo.sea.service;
 
 import com.dodo.exception.NotFoundException;
 import com.dodo.exception.UnauthorizedException;
-import com.dodo.image.ImageRepository;
 import com.dodo.image.ImageService;
 import com.dodo.image.domain.Image;
 import com.dodo.sea.domain.Creature;
@@ -12,9 +11,9 @@ import com.dodo.sea.dto.InventoryCreatureData;
 import com.dodo.sea.dto.SeaCreatureData;
 import com.dodo.sea.repository.CreatureRepository;
 import com.dodo.sea.repository.SeaCreatureRepository;
-import com.dodo.user.UserRepository;
-import com.dodo.user.domain.User;
-import com.dodo.user.domain.UserContext;
+import com.dodo.member.MemberRepository;
+import com.dodo.member.domain.Member;
+import com.dodo.member.domain.MemberContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Sort;
@@ -33,7 +32,7 @@ public class CreatureService {
     private final CreatureRepository creatureRepository;
     private final ImageService imageService;
     private final SeaCreatureRepository seaCreatureRepository;
-    private final UserRepository userRepository;
+    private final MemberRepository memberRepository;
 
 
     public CreatureData createCreature(String name, String info, Integer price
@@ -68,38 +67,38 @@ public class CreatureService {
 
 
     // 바다생물 구매
-    public Boolean purchaseCreature(UserContext userContext, CreatureData creatureData) {
+    public Boolean purchaseCreature(MemberContext memberContext, CreatureData creatureData) {
 
-        User user = userRepository.findById(userContext.getUserId()).orElseThrow(NotFoundException::new);
+        Member member = memberRepository.findById(memberContext.getMemberId()).orElseThrow(NotFoundException::new);
         Creature creature = creatureRepository.findById(creatureData.getCreatureId()).orElseThrow(NotFoundException::new);
 
         // 유저가 갖고 있는 마일리지가 적은데 구매하려 했을 때 false를 return
-        if (creature.getPrice() > user.getMileage()) {
+        if (creature.getPrice() > member.getMileage()) {
             return false;
         }
 
         // 기존에 있는 생물을 구매하지 못하게
-        if (seaCreatureRepository.findByUserAndCreature(user, creature).isPresent()) {
+        if (seaCreatureRepository.findByMemberAndCreature(member, creature).isPresent()) {
             return false;
         }
 
-        user.updateMileage(user.getMileage() - creature.getPrice()); // 유저의 마일리지 차감
+        member.updateMileage(member.getMileage() - creature.getPrice()); // 유저의 마일리지 차감
 
         SeaCreature seaCreature = SeaCreature.builder()
                 .creature(creature)
-                .user(user)
+                .member(member)
                 .isActivate(false)
                 .build();
 
-        userRepository.save(user);
+        memberRepository.save(member);
         seaCreatureRepository.save(seaCreature);
 
         return true;
     }
 
     // 상점에서 모든 생물을 보여주기 위한 함수
-    public List<CreatureData> getAllCreature(UserContext userContext) {
-        User user = userRepository.findById(userContext.getUserId()).orElseThrow(NotFoundException::new);
+    public List<CreatureData> getAllCreature(MemberContext memberContext) {
+        Member member = memberRepository.findById(memberContext.getMemberId()).orElseThrow(NotFoundException::new);
 
 
         List<CreatureData> creatureDataList = creatureRepository.findAll(sortByPrice()).stream()
@@ -107,7 +106,7 @@ public class CreatureService {
                 .toList();
 
         for(CreatureData creatureData : creatureDataList){
-            creatureData.updateOwn(seaCreatureRepository.findByUserAndCreature(user, creatureRepository.findById(creatureData.getCreatureId()).orElseThrow(NotFoundException::new)).orElse(null) != null);
+            creatureData.updateOwn(seaCreatureRepository.findByMemberAndCreature(member, creatureRepository.findById(creatureData.getCreatureId()).orElseThrow(NotFoundException::new)).orElse(null) != null);
             creatureData.updateCreatureId(seaCreatureRepository.findById(creatureData.getCreatureId()).orElseThrow(() -> new NotFoundException("없는 아이템입니다.")).getId());
         }
 
@@ -115,11 +114,11 @@ public class CreatureService {
     }
 
     // 유저가 보유한 생물을 보여주기 위한 함수
-    public List<InventoryCreatureData> getUserCreature(UserContext userContext) {
-        User user = userRepository.findById(userContext.getUserId()).orElseThrow(NotFoundException::new);
+    public List<InventoryCreatureData> getMemberCreature(MemberContext memberContext) {
+        Member member = memberRepository.findById(memberContext.getMemberId()).orElseThrow(NotFoundException::new);
 
         List<InventoryCreatureData> inventoryCreatureDataList = new ArrayList<>();
-        for (SeaCreature seaCreature : seaCreatureRepository.findAllByUser(user).orElseThrow(NotFoundException::new)){
+        for (SeaCreature seaCreature : seaCreatureRepository.findAllByMember(member).orElseThrow(NotFoundException::new)){
             Creature creature = seaCreature.getCreature();
             InventoryCreatureData inventoryCreatureData = new InventoryCreatureData(creature, seaCreature);
 
@@ -129,17 +128,17 @@ public class CreatureService {
     }
 
     // 유저가 바다를 클릭했을 때 보여줄 함수
-    public List<SeaCreatureData> getSeaCreatures(UserContext userContext){
-        User user = userRepository.findById(userContext.getUserId()).orElseThrow(NotFoundException::new);
+    public List<SeaCreatureData> getSeaCreatures(MemberContext memberContext){
+        Member member = memberRepository.findById(memberContext.getMemberId()).orElseThrow(NotFoundException::new);
 
-        return seaCreatureRepository.findAllByUser(user).orElseThrow(NotFoundException::new).stream()
+        return seaCreatureRepository.findAllByMember(member).orElseThrow(NotFoundException::new).stream()
                 .filter(SeaCreature::getIsActivate)
                 .map(SeaCreatureData::new)
                 .toList();
     }
 
-    public void deleteCreature(UserContext userContext, Long creatureId){
-        if(userContext.getUserId()  != 1L){
+    public void deleteCreature(MemberContext memberContext, Long creatureId){
+        if(memberContext.getMemberId()  != 1L){
             throw new UnauthorizedException("권한이 없습니다.");
         }
         creatureRepository.deleteById(creatureId);

@@ -8,16 +8,13 @@ import com.dodo.room.domain.*;
 import com.dodo.room.dto.RoomData;
 import com.dodo.room.dto.RoomJoinData;
 import com.dodo.room.dto.RoomListData;
-import com.dodo.roomuser.RoomUserRepository;
-import com.dodo.roomuser.RoomUserService;
-import com.dodo.roomuser.domain.RoomUser;
 import com.dodo.tag.domain.RoomTag;
 import com.dodo.tag.domain.Tag;
 import com.dodo.tag.repository.RoomTagRepository;
 import com.dodo.tag.service.RoomTagService;
-import com.dodo.user.UserRepository;
-import com.dodo.user.domain.User;
-import com.dodo.user.domain.UserContext;
+import com.dodo.member.MemberRepository;
+import com.dodo.member.domain.Member;
+import com.dodo.member.domain.MemberContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -39,25 +36,25 @@ import static com.dodo.room.dto.RoomListData.updateStatus;
 @Slf4j
 public class RoomService {
 
-    private final UserRepository userRepository;
-    private final RoomUserRepository roomUserRepository;
+    private final MemberRepository memberRepository;
+    private final com.dodo.roommember.RoomMemberRepository roomMemberRepository;
     private final RoomRepository roomRepository;
-    private final RoomUserService roomUserService;
+    private final com.dodo.roommember.RoomMemberService roomMemberService;
     private final RoomTagRepository roomTagRepository;
     private final RoomTagService roomTagService;
     private final ImageRepository imageRepository;
     private final ImageService imageService;
 
-    public List<RoomListData> getMyRoomList(UserContext userContext) {
-        User user = getUser(userContext);
+    public List<RoomListData> getMyRoomList(MemberContext memberContext) {
+        Member member = getMember(memberContext);
 
-        return roomUserRepository.findAllByUser(user)
+        return roomMemberRepository.findAllByMember(member)
                 .orElse(new ArrayList<>())
                 .stream()
-                .map(RoomUser::getRoom)
+                .map(com.dodo.roommember.domain.RoomMember::getRoom)
                 .map(RoomListData::new)
-                .map(RoomListData -> updateStatus(RoomListData, roomUserService.getCertificationStatus(userContext, RoomListData)))
-                .map(RoomListData -> updateIsManager(RoomListData, user))
+                .map(RoomListData -> updateStatus(RoomListData, roomMemberService.getCertificationStatus(memberContext, RoomListData)))
+                .map(RoomListData -> updateIsManager(RoomListData, member))
                 .toList();
     }
 
@@ -67,7 +64,7 @@ public class RoomService {
                 .stream()
                 .map(RoomData::of)
                 .sorted(Comparator.comparing(RoomData::getIsFull).reversed()
-                        .thenComparing(RoomData::getNowUser).reversed())
+                        .thenComparing(RoomData::getNowMember).reversed())
                 .toList();
 
         for(RoomData roomData : roomDataList){
@@ -95,16 +92,16 @@ public class RoomService {
     }
 
     // 인증방 생성
-    public Room createRoom(String roomName, String roomPwd, Long maxUser, Category category,
+    public Room createRoom(String roomName, String roomPwd, Long maxMember, Category category,
                                  String info, CertificationType certificationType,
                                  Boolean canChat, Integer numOfVoteSuccess, Integer numOfVoteFail,
                                  Integer frequency, Periodicity periodicity, LocalDateTime endDate, RoomType roomType){
-        Boolean isFull = maxUser == 1;
+        Boolean isFull = maxMember == 1;
         Room room = Room.builder()
                 .name(roomName)
                 .password(roomPwd)
-                .maxUser(maxUser)
-                .nowUser(1L)
+                .maxMember(maxMember)
+                .nowMember(1L)
                 .category(category)
                 .info(info)
                 .certificationType(certificationType)
@@ -123,16 +120,16 @@ public class RoomService {
     }
 
     // 그룹 인증방 생성
-    public Room createGroupRoom(String roomName, String roomPwd, Long maxUser, Category category,
+    public Room createGroupRoom(String roomName, String roomPwd, Long maxMember, Category category,
                                  String info, CertificationType certificationType, Integer numOfGoal, String goal,
                                  Boolean canChat, Integer numOfVoteSuccess, Integer numOfVoteFail,
                                  Integer frequency, Periodicity periodicity, LocalDateTime endDate){
-        Boolean isFull = maxUser == 1;
+        Boolean isFull = maxMember == 1;
         Room room = Room.builder()
                 .name(roomName)
                 .password(roomPwd)
-                .maxUser(maxUser)
-                .nowUser(1L)
+                .maxMember(maxMember)
+                .nowMember(1L)
                 .category(category)
                 .info(info)
                 .certificationType(certificationType)
@@ -158,24 +155,24 @@ public class RoomService {
     }
 
     // 채팅방 인원 증가
-    public void plusUserCnt(Long roomId){
+    public void plusMemberCnt(Long roomId){
         log.info("plus room Id : {}", roomId);
         Room room = roomRepository.findById(roomId).orElseThrow(NotFoundException::new);
-        room.setNowUser(room.getNowUser()+1);
+        room.setNowMember(room.getNowMember()+1);
     }
 
     // 채팅방 인원 감소
-    public void minusUserCnt(Long roomId){
+    public void minusMemberCnt(Long roomId){
         Room room = roomRepository.findById(roomId).orElseThrow(NotFoundException::new);
-        room.setNowUser(room.getNowUser()-1);
+        room.setNowMember(room.getNowMember()-1);
 
-        log.info("인원 : {}", room.getNowUser());
+        log.info("인원 : {}", room.getNowMember());
     }
 
     // 인증방 해체
     public void deleteRoom(Long roomId){
 
-        roomUserRepository.deleteAllInBatch(roomUserRepository.findAllByRoomId(roomId).orElseThrow(NotFoundException::new));
+        roomMemberRepository.deleteAllInBatch(roomMemberRepository.findAllByRoomId(roomId).orElseThrow(NotFoundException::new));
         roomTagRepository.deleteAllInBatch(roomTagRepository.findAllByRoom(roomRepository.findById(roomId).orElseThrow(NotFoundException::new)).orElseThrow(NotFoundException::new));
         roomRepository.deleteById(roomId);
 
@@ -189,15 +186,15 @@ public class RoomService {
     }
 
     // 방장 권한 위임
-    public void delegate(Room room, User manager, User user){
-        RoomUser roomManager = roomUserRepository.findByUserAndRoom(manager, room).orElseThrow(NotFoundException::new);
-        RoomUser roomUser = roomUserRepository.findByUserAndRoom(user, room).orElseThrow(NotFoundException::new);
+    public void delegate(Room room, Member manager, Member member){
+        com.dodo.roommember.domain.RoomMember roomManager = roomMemberRepository.findByMemberAndRoom(manager, room).orElseThrow(NotFoundException::new);
+        com.dodo.roommember.domain.RoomMember roomMember = roomMemberRepository.findByMemberAndRoom(member, room).orElseThrow(NotFoundException::new);
 
         roomManager.setIsManager(false);
-        roomUser.setIsManager(true);
+        roomMember.setIsManager(true);
 
-        roomUserRepository.save(roomManager);
-        roomUserRepository.save(roomUser);
+        roomMemberRepository.save(roomManager);
+        roomMemberRepository.save(roomMember);
     }
 
     // 목표 날짜가 돼서 인증방 해체
@@ -208,8 +205,8 @@ public class RoomService {
 
             if (room.getEndDay().toLocalDate().isEqual(LocalDate.now(ZoneId.of("Asia/Seoul")))){
 
-                roomUserRepository.findAllByRoomId(room.getId()).orElseThrow(NotFoundException::new).
-                        forEach(roomUser -> roomUserService.deleteChatRoomUser(roomUser.getRoom().getId(), roomUser.getUser().getId()));
+                roomMemberRepository.findAllByRoomId(room.getId()).orElseThrow(NotFoundException::new).
+                        forEach(roomMember -> roomMemberService.deleteChatRoomMember(roomMember.getRoom().getId(), roomMember.getMember().getId()));
                 deleteRoom(room.getId());
             }
 
@@ -217,21 +214,21 @@ public class RoomService {
     }
 
     // 방장의 인증방 설정 수정
-    public void update(Long roomId, UserContext userContext, RoomData roomData) {
-        User user = userRepository.findById(userContext.getUserId()).orElseThrow(NotFoundException::new);
+    public void update(Long roomId, MemberContext memberContext, RoomData roomData) {
+        Member member = memberRepository.findById(memberContext.getMemberId()).orElseThrow(NotFoundException::new);
         Room room = roomRepository.findById(roomId).orElseThrow(NotFoundException::new);
-        RoomUser roomUser = roomUserRepository.findByUserAndRoom(user, room).orElseThrow(NotFoundException::new);
+        com.dodo.roommember.domain.RoomMember roomMember = roomMemberRepository.findByMemberAndRoom(member, room).orElseThrow(NotFoundException::new);
         List<RoomTag> roomTags = roomTagRepository.findAllByRoom(room).orElseThrow(NotFoundException::new);
 
-        if (!roomUser.getIsManager()) {
+        if (!roomMember.getIsManager()) {
             log.info("you are not manager");
         }
         else {
-            log.info("roomData's maxUser : {}", roomData.getMaxUser());
+            log.info("roomData's maxMember : {}", roomData.getMaxMember());
             room.update(
                     roomData.getName(),
                     roomData.getInfo(),
-                    roomData.getMaxUser(),
+                    roomData.getMaxMember(),
                     roomData.getCanChat(),
                     roomData.getNumOfVoteSuccess(),
                     roomData.getNumOfVoteFail(),
@@ -262,24 +259,24 @@ public class RoomService {
     }
 
     // 유저 추방
-    public void repel(Long roomId, UserContext userContext, Long userId){
+    public void repel(Long roomId, MemberContext memberContext, Long memberId){
         Room room = roomRepository.findById(roomId).orElseThrow(NotFoundException::new);
-        User manager = userRepository.findById(userContext.getUserId()).orElseThrow(NotFoundException::new);
-        RoomUser roomManager = roomUserRepository.findByUserAndRoom(manager, room).orElseThrow(NotFoundException::new);
+        Member manager = memberRepository.findById(memberContext.getMemberId()).orElseThrow(NotFoundException::new);
+        com.dodo.roommember.domain.RoomMember roomManager = roomMemberRepository.findByMemberAndRoom(manager, room).orElseThrow(NotFoundException::new);
 
         if (!roomManager.getIsManager()) {
             log.info("not manager");
         } else {
-            roomUserService.deleteChatRoomUser(roomId, userId);
-            minusUserCnt(roomId);
+            roomMemberService.deleteChatRoomMember(roomId, memberId);
+            minusMemberCnt(roomId);
         }
 
     }
 
-    public RoomData getRoomInfo(Long roomId, UserContext userContext){
+    public RoomData getRoomInfo(Long roomId, MemberContext memberContext){
         Room room = roomRepository.findById(roomId).orElseThrow(NotFoundException::new);
-        User user = getUser(userContext);
-        RoomUser roomUser = getRoomUser(user, room);
+        Member member = getMember(memberContext);
+        com.dodo.roommember.domain.RoomMember roomMember = getRoomMember(member, room);
         RoomData roomData = RoomData.of(room);
 
         List<RoomTag> roomTag = roomTagRepository.findAllByRoom(room).orElseThrow(NotFoundException::new);
@@ -288,13 +285,13 @@ public class RoomService {
                 .map(Tag::getName)
                 .toList();
         roomData.updateTag(tags);
-        roomData.updateIsManager(roomUser.getIsManager());
+        roomData.updateIsManager(roomMember.getIsManager());
         return roomData;
     }
 
-    public RoomData getRoomData(RoomData roomData, UserContext userContext, Room room) {
-        roomUserService.createRoomUser(userContext, room.getId());
-        roomUserService.setManager(userContext, room);
+    public RoomData getRoomData(RoomData roomData, MemberContext memberContext, Room room) {
+        roomMemberService.createRoomMember(memberContext, room.getId());
+        roomMemberService.setManager(memberContext, room);
         roomTagService.saveRoomTag(room, roomData.getTag());
 
 
@@ -305,13 +302,13 @@ public class RoomService {
         return roomData2;
     }
 
-    public RoomJoinData getRoomDetatil(Long roomId, UserContext userContext) {
+    public RoomJoinData getRoomDetatil(Long roomId, MemberContext memberContext) {
         Room room = getRoom(roomId);
-        User user = getUser(userContext);
-        RoomUser roomUser = roomUserRepository.findByUserAndRoom(user, room).orElse(null);
+        Member member = getMember(memberContext);
+        com.dodo.roommember.domain.RoomMember roomMember = roomMemberRepository.findByMemberAndRoom(member, room).orElse(null);
 
         RoomJoinData roomJoinData = new RoomJoinData(room);
-        roomJoinData.updateIsIn(roomUser != null);
+        roomJoinData.updateIsIn(roomMember != null);
 
         List<String> tags = getTags(roomId);
         roomJoinData.updateTag(tags);
@@ -319,10 +316,10 @@ public class RoomService {
         return roomJoinData;
     }
 
-    public RoomListData updateIsManager(RoomListData roomListData, User user){
-        RoomUser roomUser = roomUserRepository.findByUserAndRoom(user, roomRepository.findById(roomListData.getRoomId()).orElseThrow(NotFoundException::new)).orElseThrow(NotFoundException::new);
+    public RoomListData updateIsManager(RoomListData roomListData, Member member){
+        com.dodo.roommember.domain.RoomMember roomMember = roomMemberRepository.findByMemberAndRoom(member, roomRepository.findById(roomListData.getRoomId()).orElseThrow(NotFoundException::new)).orElseThrow(NotFoundException::new);
 
-        roomListData.updateIsManager(roomUser.getIsManager());
+        roomListData.updateIsManager(roomMember.getIsManager());
         return roomListData;
     }
 
@@ -334,14 +331,14 @@ public class RoomService {
 
     }
 
-    public User getUser(UserContext userContext) {
-        return userRepository.findById(userContext.getUserId()).orElseThrow(NotFoundException::new);
+    public Member getMember(MemberContext memberContext) {
+        return memberRepository.findById(memberContext.getMemberId()).orElseThrow(NotFoundException::new);
     }
     public Room getRoom(Long roomId){
         return roomRepository.findById(roomId).orElseThrow(NotFoundException::new);
     }
-    public RoomUser getRoomUser(User user, Room room){
-        return roomUserRepository.findByUserAndRoom(user, room).orElseThrow(NotFoundException::new);
+    public com.dodo.roommember.domain.RoomMember getRoomMember(Member member, Room room){
+        return roomMemberRepository.findByMemberAndRoom(member, room).orElseThrow(NotFoundException::new);
     }
     public List<String> getTags(Long roomId){
         List<RoomTag> roomTags = roomTagRepository.findAllByRoom(roomRepository.findById(roomId).orElseThrow(NotFoundException::new)).orElseThrow(NotFoundException::new);

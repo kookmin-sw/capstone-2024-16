@@ -1,6 +1,6 @@
 package com.dodo.certification.domain;
 
-import com.dodo.user.domain.User;
+import com.dodo.member.domain.Member;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -14,7 +14,7 @@ public class Vote {
     private Long id;
 
     @ManyToOne
-    private User user;
+    private Member member;
 
     @Enumerated(EnumType.STRING)
     private VoteStatus voteStatus;
@@ -22,8 +22,8 @@ public class Vote {
     @ManyToOne
     private Certification certification;
 
-    public Vote(User user, Certification certification) {
-        this.user = user;
+    public Vote(Member member, Certification certification) {
+        this.member = member;
         this.certification = certification;
         this.voteStatus = VoteStatus.NONE;
     }
